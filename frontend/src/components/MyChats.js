@@ -10,11 +10,16 @@ import GroupChatModal from "./miscellaneous/GroupChatModal";
 
 const MyChats = ({ fetchAgain }) => {
     const [loggedUser, setLoggedUser] = useState()
-    const { user, setSelectedChat, chats, setChats, selectedChat } = ChatState()
+    const { user, setSelectedChat, isLoading, chats, setChats, selectedChat } = ChatState()
 
     const toast = useToast()
 
     const fetchChats = async () => {
+        if (!user || !user.token) {
+
+            return
+        }
+
         try {
             const config = {
                 headers: {
@@ -38,9 +43,13 @@ const MyChats = ({ fetchAgain }) => {
     }
 
     useEffect(() => {
-        setLoggedUser(JSON.parse(localStorage.getItem("userInfo")))
-        fetchChats()
-    }, [fetchAgain])
+        if (user) {
+            setLoggedUser(user)
+            fetchChats()
+        }
+    }, [fetchAgain, user])
+
+
 
     return (
         <Box
@@ -82,7 +91,9 @@ const MyChats = ({ fetchAgain }) => {
                 borderRadius={"lg"}
                 overflowY={"hidden"}
             >
-                {chats ? (
+                {isLoading ? (
+                    <ChatLoading />
+                ) : chats?.length > 0 ? (
                     <Stack overflowY="scroll">
                         {chats.map(chat => (
                             <Box
@@ -104,7 +115,7 @@ const MyChats = ({ fetchAgain }) => {
                         ))}
                     </Stack>
                 ) : (
-                    <ChatLoading />
+                    <></>
                 )}
             </Box>
         </Box>)

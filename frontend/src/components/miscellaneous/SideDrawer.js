@@ -93,7 +93,7 @@ const SideDrawer = () => {
         }
     }
     const LogoutHandler = () => {
-        localStorage.removeItem("userInfo")
+        sessionStorage.removeItem("userInfo")
         history.push('/')
     }
     return (
