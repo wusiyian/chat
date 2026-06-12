@@ -5,6 +5,7 @@ import App from './App';
 import { Provider } from "./components/ui/provider"
 import { BrowserRouter } from "react-router-dom"
 import ChatProvider from './Context/ChatProvide';
+import './config/axios'
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(

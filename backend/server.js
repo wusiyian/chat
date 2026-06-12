@@ -7,12 +7,34 @@ const { notFound, errorHandler } = require("./middleware/errorMiddleware");
 const chatRoutes = require("./routes/chatRoutes")
 const messageRoutes = require('./routes/messageRoutes')
 const path = require('path')
+const cors = require('cors')
 
 dotenv.config()
 connectDB()
 const app = express()
 
 app.use(express.json())//接受json数据
+
+const allowedOrigins = [
+    'http://localhost:3000',
+    'http://127.0.0.1:3000',
+    'http://120.26.160.97:3000'
+]
+
+// 方式一：动态判断（推荐）
+app.use(cors({
+    origin: function (origin, callback) {
+        // 允许没有 origin 的请求（如 Postman）
+        if (!origin) return callback(null, true)
+
+        if (allowedOrigins.indexOf(origin) !== -1) {
+            callback(null, true)
+        } else {
+            callback(new Error('CORS not allowed'))
+        }
+    },
+    credentials: true
+}))
 
 app.use('/api/user', userRoutes)
 app.use('/api/chat', chatRoutes)
@@ -40,7 +62,8 @@ const server = app.listen(5000, console.log(`server started on port ${PORT}`))
 const io = require('socket.io')(server, {
     pingTimeout: 60000,
     cors: {
-        origin: "http://120.26.160.97:3000"
+        origin: allowedOrigins,
+        credentials: true
     }
 })
 

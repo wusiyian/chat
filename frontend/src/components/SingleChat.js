@@ -11,8 +11,8 @@ import ScrollableChat from "./ScrollableChat"
 import io from 'socket.io-client'
 import Lottie from 'react-lottie'
 import animationData from "../animations/typing.json"
+import { SOCKET_URL } from "../config/api"
 
-const ENDPOINT = "http://120.26.160.97:5000"
 var socket, selectedChatCompare
 
 const SingleChat = ({ fetchAgain, setFetchAgain }) => {
@@ -37,7 +37,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
     const toast = useToast()
 
     useEffect(() => {
-        socket = io(ENDPOINT)
+        socket = io(SOCKET_URL)
         socket.emit("setup", user)
         socket.on('connected', () => setSockedConnected(true))
         socket.on("typing", () => setIsTyping(true))
