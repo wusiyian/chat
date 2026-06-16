@@ -50,4 +50,45 @@ const allMessages = asyncHandler(async (req, res) => {
     }
 })
 
-module.exports = { sendMessage, allMessages }
+const getOfflineMessages = asyncHandler(async (req, res) => {
+    try {
+        const offlineMessageService = require("../services/offlineMessageService")
+        const userId = req.user._id
+
+        const message = await offlineMessageService.getOfflineMessages(userId)
+        const count = await offlineMessageService.getOfflineMessageCount(userId)
+
+        res.json({
+            success: true,
+            message,
+            count
+        })
+    } catch (error) {
+        res.status(400)
+        throw new Error(error.message)
+    }
+})
+
+const clearOfflineMessages = asyncHandler(async (req, res) => {
+    try {
+        const offlineMessageService = require("../services/offlineMessageService")
+        const userId = req.user._id
+
+        await offlineMessageService.clearOfflineMessages(userId)
+
+        res.json({
+            success: true,
+            message: "离线消息已清除"
+        })
+    } catch (error) {
+        res.status(400)
+        throw new Error(error.message)
+    }
+})
+
+module.exports = {
+    sendMessage,
+    allMessages,
+    clearOfflineMessages,
+    getOfflineMessages
+}

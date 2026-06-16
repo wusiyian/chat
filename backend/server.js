@@ -8,6 +8,8 @@ const chatRoutes = require("./routes/chatRoutes")
 const messageRoutes = require('./routes/messageRoutes')
 const path = require('path')
 const cors = require('cors')
+const redis = require("./config/redis")
+const offlineMessageService = require("./services/offlineMessageService")
 
 dotenv.config()
 connectDB()
@@ -67,11 +69,34 @@ const io = require('socket.io')(server, {
     }
 })
 
+const onlineUsers = new Map()
+
 io.on("connection", (socket) => {
     console.log("connected to socket.io");
 
-    socket.on('setup', (userData) => {
+    socket.on('setup', async (userData) => {
+        if (!userData || !userData._id) {
+            console.log("setup 事件缺少用户数据");
+            return
+        }
+
         socket.join(userData._id)
+        onlineUsers.set(userData._id, socket.id)
+        console.log(`👤 用户 ${userData.name || userData._id} 上线，在线用户数: ${onlineUsers.size}`)
+
+        try {
+            const offlineCount = await offlineMessageService.getOfflineMessageCount(userData._id)
+            if (offlineCount > 0) {
+                console.log(`📨 用户有 ${offlineCount} 条离线消息`)
+                const offlineMessages = await offlineMessageService.getOfflineMessages(userData._id)
+                if (offlineMessages.length > 0) {
+                    socket.emit("offline messages", offlineMessages)
+                    await offlineMessageService.clearOfflineMessages(userData._id)
+                }
+            }
+        } catch (error) {
+            console.error("❌ 处理离线消息失败:", error)
+        }
         socket.emit("connected")
     })
 
@@ -83,16 +108,39 @@ io.on("connection", (socket) => {
     socket.on('typing', (room) => socket.in(room).emit('typing'))
     socket.on('stop typing', (room) => socket.in(room).emit('stop typing'))
 
-    socket.on("new message", (newMessageRecieved) => {
-        var chat = newMessageRecieved.chat
+    socket.on("new message", async (newMessageRecieved) => {
+        try {
+            const chat = newMessageRecieved.chat
 
-        if (!chat.users) return console.log("chat.users not defined");
+            if (!chat.users || !chat) return console.log("消息缺少 chat 数据");
+            console.log(`💬 新消息: ${newMessageRecieved.content?.substring(0, 30) || ''}...`)
 
-        chat.users.forEach(user => {
-            if (user._id == newMessageRecieved.sender._id) return
+            for (const user of chat.users) {
+                if (user._id == newMessageRecieved.sender._id) continue
 
-            socket.in(user._id).emit("message recieved", newMessageRecieved)
-        });
+                const isOnline = onlineUsers.has(user._id)
+
+                if (isOnline) {
+                    socket.in(user._id).emit("message recieved", newMessageRecieved)
+                    console.log(`📤 推送给在线用户 ${user._id}`)
+                } else {
+                    await offlineMessageService.storeOfflineMessage(user._id, newMessageRecieved)
+                    console.log(`💾 存入 Redis，等待用户 ${user._id} 上线`)
+                }
+            }
+        } catch (error) {
+            console.error("❌ 处理新消息失败:", error)
+        }
+    })
+
+    socket.on("disconnect", () => {
+        for (const [userId, socketId] of onlineUsers.entries()) {
+            if (socketId === socket.id) {
+                onlineUsers.delete(userId)
+                console.log(`👋 用户 ${userId} 断开连接，在线用户数: ${onlineUsers.size}`)
+                break
+            }
+        }
     })
 
     socket.off("setup", () => {

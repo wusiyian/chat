@@ -20,7 +20,7 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
 
     const [messages, setMessages] = useState([])
     const [loading, setLoading] = useState(false)
-    const [newMessage, setNewMessage] = useState()
+    const [newMessage, setNewMessage] = useState("")
     const [socketConnected, setSockedConnected] = useState(false)
     const [typing, setTyping] = useState(false)
     const [isTyping, setIsTyping] = useState(false)
@@ -42,6 +42,31 @@ const SingleChat = ({ fetchAgain, setFetchAgain }) => {
         socket.on('connected', () => setSockedConnected(true))
         socket.on("typing", () => setIsTyping(true))
         socket.on("stop typing", () => setIsTyping(false))
+
+        socket.on("offline messages", (offlineMessages) => {
+            console.log(`📨 [SingleChat] 收到 ${offlineMessages.length} 条离线消息`)
+            if (offlineMessages.length > 0) {
+                setNotification(prev => {
+                    const existingIds = new Set(prev.map(n => n._id))
+                    const newMessages = offlineMessages.filter(m => !existingIds.has(m._id))
+                    return [...newMessages, ...prev]
+                })
+                toast({
+                    title: `📨 您有 ${offlineMessages.length} 条离线消息`,
+                    description: "点击铃铛查看",
+                    status: "info",
+                    duration: 5000,
+                    isClosable: true,
+                    position: "top-right",
+                })
+            }
+        })
+        return () => {
+            socket.off("offline messages")
+            socket.off("typing")
+            socket.off("stop typing")
+            socket.off("connected")
+        }
     }, [])
 
     const sendMessage = async (event) => {
